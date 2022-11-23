@@ -27,6 +27,8 @@ import java.util.concurrent.Callable;
 import org.apache.kafka.common.utils.Time;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.errors.ConnectException;
+import org.apache.kafka.connect.sink.ErrantRecordReporter;
+import org.apache.kafka.connect.sink.SinkRecord;
 
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.DocWriteRequest;
@@ -79,6 +81,10 @@ public class OpensearchClient implements AutoCloseable {
     protected final RestHighLevelClient client;
 
     public OpensearchClient(final OpensearchSinkConnectorConfig config) {
+        this(config, null);
+    }
+
+    public OpensearchClient(final OpensearchSinkConnectorConfig config, final ErrantRecordReporter reporter) {
         this(
                 new RestHighLevelClient(
                         RestClient.builder(config.httpHosts())
@@ -86,14 +92,16 @@ public class OpensearchClient implements AutoCloseable {
                                         new HttpClientConfigCallback(config)
                                 )
                 ),
-                config
+                config,
+                reporter
         );
     }
 
-    protected OpensearchClient(final RestHighLevelClient client, final OpensearchSinkConnectorConfig config) {
+    protected OpensearchClient(final RestHighLevelClient client, final OpensearchSinkConnectorConfig config,
+                               final ErrantRecordReporter reporter) {
         this.client = client;
         this.config = config;
-        this.bulkProcessor = new BulkProcessor(Time.SYSTEM, client, config);
+        this.bulkProcessor = new BulkProcessor(Time.SYSTEM, client, config, reporter);
         this.bulkProcessor.start();
     }
 
@@ -156,8 +164,8 @@ public class OpensearchClient implements AutoCloseable {
                 && !mappings.sourceAsMap().isEmpty();
     }
 
-    public void index(final DocWriteRequest<?> indexRequest) {
-        bulkProcessor.add(indexRequest, config.flushTimeoutMs());
+    public void index(final DocWriteRequest<?> indexRequest, final SinkRecord record) {
+        bulkProcessor.add(indexRequest, record, config.flushTimeoutMs());
     }
 
     public void flush() {

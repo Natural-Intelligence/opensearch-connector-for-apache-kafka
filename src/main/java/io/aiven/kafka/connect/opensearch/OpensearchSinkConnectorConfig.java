@@ -157,13 +157,16 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
     public static final String BEHAVIOR_ON_MALFORMED_DOCS_CONFIG = "behavior.on.malformed.documents";
     private static final String BEHAVIOR_ON_MALFORMED_DOCS_DOC = "How to handle records that "
             + "Opensearch rejects due to some malformation of the document itself, such as an index"
-            + " mapping conflict or a field name containing illegal characters. Valid options are "
-            + "'ignore', 'warn', and 'fail'.";
+            + " mapping conflict or a field name containing illegal characters. Valid options are: "
+            + "'ignore' - do not index the record, 'warn' - log a warning message and do not index the record, "
+            + "'report' - report to errant record reporter and do not index the record, 'fail' - fail the task.";
     
     public static final String BEHAVIOR_ON_VERSION_CONFLICT_CONFIG = "behavior.on.version.conflict";
     private static final String BEHAVIOR_ON_VERSION_CONFLICT_DOC = "How to handle records that "
             + "Opensearch rejects due to version conflicts (if optimistic locking mechanism has been"
-            + "activated). Valid options are 'ignore', 'warn', and 'fail'.";
+            + "activated). Valid options are: 'ignore' - ignore and keep the existing record, "
+            + "'warn' - log a warning message and keep the existing record, 'report' - report to errant record reporter"
+            + " and keep the existing record, 'fail' - fail the task.";
 
     protected static ConfigDef baseConfigDef() {
         final ConfigDef configDef = new ConfigDef();
@@ -429,13 +432,19 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                 group,
                 ++order,
                 Width.SHORT,
-                "Behavior on document's version conflict (optimistic locking)");
+                "Behavior on document's version conflict (optimistic locking)"
+        );
     }
 
     public static final ConfigDef CONFIG = baseConfigDef();
 
     public OpensearchSinkConnectorConfig(final Map<String, String> props) {
         super(CONFIG, props);
+    }
+
+    public boolean requiresErrantRecordReporter() {
+        return behaviorOnMalformedDoc() == BulkProcessor.BehaviorOnMalformedDoc.REPORT
+                || behaviorOnVersionConflict() == BulkProcessor.BehaviorOnVersionConflict.REPORT;
     }
 
     public HttpHost[] httpHosts() {
