@@ -6,7 +6,7 @@ def svcName = currentBuild.rawBuild.project.parent.displayName
 //get pod template definition
 def pod = libraryResource 'com/naturalint/kafka-agent-gradle.yaml'
 def template_vars = [
-   'java_version': '8'
+   'java_version': '11'
 ]
 pod = renderTemplate(pod, template_vars)
 print pod
