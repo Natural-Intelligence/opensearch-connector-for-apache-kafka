@@ -1,4 +1,4 @@
-@Library('ni-utils') _
+@Library('ni-utilsi@support-openLineage') _
 
 //service name is extrapolated from repository name check
 def svcName = currentBuild.rawBuild.project.parent.displayName
