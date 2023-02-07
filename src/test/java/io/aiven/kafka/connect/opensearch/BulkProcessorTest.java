@@ -27,7 +27,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
-import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.utils.Time;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -58,7 +57,6 @@ import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.BE
 import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG;
 import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG;
 import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.DLQ_TOPIC_NAME_CONFIG;
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
 import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.LINGER_MS_CONFIG;
 import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.MAX_BUFFERED_RECORDS_CONFIG;
 import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.MAX_IN_FLIGHT_REQUESTS_CONFIG;
@@ -519,7 +517,6 @@ public class BulkProcessorTest {
                 LINGER_MS_CONFIG, "1000",
                 MAX_RETRIES_CONFIG, "3",
                 READ_TIMEOUT_MS_CONFIG, "1",
-                ERRORS_TOLERANCE_CONFIG, "ALL",
                 DLQ_TOPIC_NAME_CONFIG, "dlq_topic",
                 BEHAVIOR_ON_VERSION_CONFLICT_CONFIG, BehaviorOnMalformedDoc.REPORT.toString()
         ));
@@ -561,7 +558,6 @@ public class BulkProcessorTest {
                 LINGER_MS_CONFIG, "1000",
                 MAX_RETRIES_CONFIG, "3",
                 READ_TIMEOUT_MS_CONFIG, "1",
-                ERRORS_TOLERANCE_CONFIG, "ALL",
                 DLQ_TOPIC_NAME_CONFIG, "dlq_topic",
                 BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BehaviorOnMalformedDoc.REPORT.toString()
         ));
@@ -602,7 +598,6 @@ public class BulkProcessorTest {
                 LINGER_MS_CONFIG, "1000",
                 MAX_RETRIES_CONFIG, "3",
                 READ_TIMEOUT_MS_CONFIG, "1",
-                ERRORS_TOLERANCE_CONFIG, "NONE",
                 BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BehaviorOnMalformedDoc.WARN.toString()
         ));
         final String errorInfo =
@@ -625,26 +620,6 @@ public class BulkProcessorTest {
 
         assertTrue(clientAnswer.expectationsMet());
         verify(dlqReporter, never()).report(any(SinkRecord.class), any(Throwable.class));
-    }
-
-    @Test
-    public void failToStartWhenReportIsConfiguredAndDlqTopicIsMissing() {
-
-        final Exception exception = assertThrows(ConfigException.class, () -> {
-            new OpensearchSinkConnectorConfig(Map.of(
-                    CONNECTION_URL_CONFIG, "http://localhost",
-                    MAX_BUFFERED_RECORDS_CONFIG, "100",
-                    MAX_IN_FLIGHT_REQUESTS_CONFIG, "5",
-                    BATCH_SIZE_CONFIG, "2",
-                    LINGER_MS_CONFIG, "1000",
-                    MAX_RETRIES_CONFIG, "3",
-                    READ_TIMEOUT_MS_CONFIG, "1",
-                    ERRORS_TOLERANCE_CONFIG, "ALL",
-                    BEHAVIOR_ON_VERSION_CONFLICT_CONFIG, BehaviorOnMalformedDoc.REPORT.toString()
-            ));
-        });
-
-        assertTrue(exception.getMessage().contains("Dead letter queue must be configured"));
     }
 
     private SinkRecord newSinkRecord() {

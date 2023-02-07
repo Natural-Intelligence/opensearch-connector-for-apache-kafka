@@ -68,7 +68,6 @@ public class BulkProcessor {
     private final long retryBackoffMs;
     private final BehaviorOnMalformedDoc behaviorOnMalformedDoc;
     private final BehaviorOnVersionConflict behaviorOnVersionConflict;
-    private final ErrorToleranceType errorToleranceType;
 
     private final Thread farmer;
     private final ExecutorService executor;
@@ -106,7 +105,6 @@ public class BulkProcessor {
         this.retryBackoffMs = config.retryBackoffMs();
         this.behaviorOnMalformedDoc = config.behaviorOnMalformedDoc();
         this.behaviorOnVersionConflict = config.behaviorOnVersionConflict();
-        this.errorToleranceType = config.errorToleranceType();
         this.reporter = reporter;
 
         unsentRecords = new ArrayDeque<>(maxBufferedRecords);
@@ -124,18 +122,6 @@ public class BulkProcessor {
                 BehaviorOnMalformedDoc.FAIL,
                 BehaviorOnMalformedDoc.IGNORE,
                 BehaviorOnMalformedDoc.WARN);
-        }
-
-        if (reporter != null && this.errorToleranceType == ErrorToleranceType.NONE
-                && (config.behaviorOnMalformedDoc() != BehaviorOnMalformedDoc.FAIL
-                || config.behaviorOnVersionConflict() != BehaviorOnVersionConflict.FAIL)) {
-            LOGGER.warn("The '{}' is set to `{}`, which means that only errors that would cause the task to fail"
-                        + " will be reported to the dead letter queue. You may consider setting property '{}' to '{}'"
-                        + " to deal with errors that are configured to be ignored or warned",
-                    OpensearchSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG,
-                    ErrorToleranceType.NONE,
-                    OpensearchSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG,
-                    ErrorToleranceType.ALL);
         }
     }
 
@@ -391,7 +377,7 @@ public class BulkProcessor {
             }
         }
 
-        private void reportToDlq(final String errorMessage, final SinkRecord batchRecord) {
+        private void sendToErrantRecordReporter(final String errorMessage, final SinkRecord batchRecord) {
             LOGGER.debug(errorMessage);
             reporter.report(batchRecord, new Exception(errorMessage));
         }
@@ -453,7 +439,7 @@ public class BulkProcessor {
                                             + " Rest status: %s, Action id: %s, Error message: %s",
                                     batchId, batch.size(), bulkItemResponse.getFailure().getStatus(),
                                     bulkItemResponse.getFailure().getId(), bulkItemResponse.getFailureMessage());
-                    reportToDlq(errorMessage, batch.get(bulkItemResponse.getItemId()).getSinkRecord());
+                    sendToErrantRecordReporter(errorMessage, batch.get(bulkItemResponse.getItemId()).getSinkRecord());
                     break;
                 case WARN:
                     LOGGER.warn("Encountered a version conflict when executing batch {} of {}"
@@ -491,7 +477,7 @@ public class BulkProcessor {
                                             + " Rest status: %s, Action id: %s, Error message: %s",
                                     batchId, batch.size(), bulkItemResponse.getFailure().getStatus(),
                                     bulkItemResponse.getFailure().getId(), bulkItemResponse.getFailureMessage());
-                    reportToDlq(errorMessage, batch.get(bulkItemResponse.getItemId()).getSinkRecord());
+                    sendToErrantRecordReporter(errorMessage, batch.get(bulkItemResponse.getItemId()).getSinkRecord());
                     break;
                 case WARN:
                     LOGGER.warn("Encountered an illegal document error when executing batch {} of {}"
@@ -662,55 +648,6 @@ public class BulkProcessor {
         }
 
         public static BehaviorOnVersionConflict forValue(final String value) {
-            return valueOf(value.toUpperCase(Locale.ROOT));
-        }
-
-        @Override
-        public String toString() {
-            return name().toLowerCase(Locale.ROOT);
-        }
-    }
-
-    public enum ErrorToleranceType {
-        NONE,
-        ALL;
-
-        public static final ErrorToleranceType DEFAULT = NONE;
-
-        // Want values for "errors.tolerance" property to be case-insensitive
-        public static final ConfigDef.Validator VALIDATOR = new ConfigDef.Validator() {
-            private final ConfigDef.ValidString validator = ConfigDef.ValidString.in(names());
-
-            @Override
-            public void ensureValid(final String name, final Object value) {
-                if (value instanceof String) {
-                    final String lowerCaseStringValue = ((String) value).toLowerCase(Locale.ROOT);
-                    validator.ensureValid(name, lowerCaseStringValue);
-                } else {
-                    validator.ensureValid(name, value);
-                }
-            }
-
-            // Overridden here so that ConfigDef.toEnrichedRst shows possible values correctly
-            @Override
-            public String toString() {
-                return validator.toString();
-            }
-
-        };
-
-        public static String[] names() {
-            final ErrorToleranceType[] errorToleranceTypes = values();
-            final String[] result = new String[errorToleranceTypes.length];
-
-            for (int i = 0; i < errorToleranceTypes.length; i++) {
-                result[i] = errorToleranceTypes[i].toString();
-            }
-
-            return result;
-        }
-
-        public static ErrorToleranceType forValue(final String value) {
             return valueOf(value.toUpperCase(Locale.ROOT));
         }
 

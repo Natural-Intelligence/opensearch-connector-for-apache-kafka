@@ -37,6 +37,9 @@ import org.apache.kafka.connect.sink.SinkTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.BEHAVIOR_ON_MALFORMED_DOCS_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG;
+
 public class OpensearchSinkTask extends SinkTask {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OpensearchSinkTask.class);
@@ -62,6 +65,12 @@ public class OpensearchSinkTask extends SinkTask {
             LOGGER.info("Starting OpensearchSinkTask.");
 
             this.config = new OpensearchSinkConnectorConfig(props);
+
+            if (config.requiresErrantRecordReporter() && getErrantRecordReporter() == null) {
+                throw new ConfigException(String.format(
+                        "Errant record reporter must be configured when using 'report' option for %s or %s",
+                        BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BEHAVIOR_ON_VERSION_CONFLICT_CONFIG));
+            }
 
             // Calculate the maximum possible backoff time ...
             final long maxRetryBackoffMs =

@@ -145,18 +145,16 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
     public static final String BEHAVIOR_ON_MALFORMED_DOCS_CONFIG = "behavior.on.malformed.documents";
     private static final String BEHAVIOR_ON_MALFORMED_DOCS_DOC = "How to handle records that "
             + "Opensearch rejects due to some malformation of the document itself, such as an index"
-            + " mapping conflict or a field name containing illegal characters. Valid options are "
-            + "'ignore', 'warn', and 'fail'.";
+            + " mapping conflict or a field name containing illegal characters. Valid options are: "
+            + "'ignore' - do not index the record, 'warn' - log a warning message and do not index the record, "
+            + "'report' - report to errant record reporter and do not index the record, 'fail' - fail the task.";
     
     public static final String BEHAVIOR_ON_VERSION_CONFLICT_CONFIG = "behavior.on.version.conflict";
     private static final String BEHAVIOR_ON_VERSION_CONFLICT_DOC = "How to handle records that "
             + "Opensearch rejects due to version conflicts (if optimistic locking mechanism has been"
-            + "activated). Valid options are 'ignore', 'warn', and 'fail'.";
-
-    public static final String ERRORS_TOLERANCE_CONFIG = "errors.tolerance";
-    public static final String ERRORS_TOLERANCE_DOC = "Behavior for tolerating errors during connector operation. "
-        + "'none' is the default value and signals that any error will result in an immediate connector task failure;"
-        + " 'all' changes the behavior to skip over problematic records.";
+            + "activated). Valid options are: 'ignore' - ignore and keep the existing record, "
+            + "'warn' - log a warning message and keep the existing record, 'report' - report to errant record reporter"
+            + " and keep the existing record, 'fail' - fail the task.";
 
     public static final String DLQ_TOPIC_NAME_CONFIG =  "errors.deadletterqueue.topic.name";
 
@@ -405,37 +403,18 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                 ++order,
                 Width.SHORT,
                 "Behavior on document's version conflict (optimistic locking)"
-        ).define(
-                ERRORS_TOLERANCE_CONFIG,
-                Type.STRING,
-                BulkProcessor.ErrorToleranceType.DEFAULT.toString(),
-                BulkProcessor.ErrorToleranceType.VALIDATOR,
-                Importance.LOW,
-                ERRORS_TOLERANCE_DOC,
-                group,
-                ++order,
-                Width.SHORT,
-                "Error Tolerance");
+        );
     }
 
     public static final ConfigDef CONFIG = baseConfigDef();
 
     public OpensearchSinkConnectorConfig(final Map<String, String> props) {
         super(CONFIG, props);
-        validateDeadLetterQueueConfig(props);
     }
 
-    private void validateDeadLetterQueueConfig(final Map<String, String> props) {
-        final String dqlTopicStr = props.get(DLQ_TOPIC_NAME_CONFIG);
-        final boolean dlqIsConfigured = dqlTopicStr != null && !dqlTopicStr.isEmpty();
-
-        if ((behaviorOnMalformedDoc() == BulkProcessor.BehaviorOnMalformedDoc.REPORT
-                || behaviorOnVersionConflict() == BulkProcessor.BehaviorOnVersionConflict.REPORT)
-                && !dlqIsConfigured) {
-            throw new ConfigException(String.format(
-                    "Dead letter queue must be configured when using 'report' option for %s or %s",
-                    BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BEHAVIOR_ON_VERSION_CONFLICT_CONFIG));
-        }
+    public boolean requiresErrantRecordReporter() {
+        return behaviorOnMalformedDoc() == BulkProcessor.BehaviorOnMalformedDoc.REPORT
+                || behaviorOnVersionConflict() == BulkProcessor.BehaviorOnVersionConflict.REPORT;
     }
 
     public HttpHost[] httpHosts() {
@@ -550,12 +529,6 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
     public BulkProcessor.BehaviorOnVersionConflict behaviorOnVersionConflict() {
         return BulkProcessor.BehaviorOnVersionConflict.forValue(
                 getString(OpensearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG)
-        );
-    }
-
-    public BulkProcessor.ErrorToleranceType errorToleranceType() {
-        return BulkProcessor.ErrorToleranceType.forValue(
-                getString(OpensearchSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG)
         );
     }
 
