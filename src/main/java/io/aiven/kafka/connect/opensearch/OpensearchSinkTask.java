@@ -69,6 +69,9 @@ public class OpensearchSinkTask extends SinkTask {
             LOGGER.info("### requiresErrantRecordReporter = {}", config.requiresErrantRecordReporter());
             LOGGER.info("### getErrantRecordReporter = {}",getErrantRecordReporter());
             if (config.requiresErrantRecordReporter() && getErrantRecordReporter() == null) {
+                LOGGER.error(String.format(
+                        "Errant record reporter must be configured when using 'report' option for %s or %s",
+                        BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BEHAVIOR_ON_VERSION_CONFLICT_CONFIG));
                 throw new ConfigException(String.format(
                         "Errant record reporter must be configured when using 'report' option for %s or %s",
                         BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BEHAVIOR_ON_VERSION_CONFLICT_CONFIG));
